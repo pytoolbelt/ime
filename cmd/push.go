@@ -8,9 +8,39 @@ import (
 	"os"
 
 	"github.com/pytoolbelt/ime/pkg/config"
+	"github.com/pytoolbelt/ime/pkg/environment"
 	"github.com/pytoolbelt/ime/pkg/paramstore"
 	"github.com/spf13/cobra"
 )
+
+var modeFlag string
+var envFlag string
+var projFlag string
+var overwriteFlag bool
+
+func AddParameters(ps *paramstore.ParamStore, ef *environment.EnvFile) error {
+	fmt.Print("adding parameters to parameter store")
+	return nil
+}
+
+func DeleteParameters(ps *paramstore.ParamStore, ef *environment.EnvFile) error {
+	fmt.Print("deleting parameters from parameter store")
+	return nil
+}
+
+func MergeParameters(ps *paramstore.ParamStore, ef *environment.EnvFile) error {
+	fmt.Print("merging parameters with parameter store")
+	return nil
+}
+
+func IsValidMode(mode string) bool {
+	switch mode {
+	case "add", "delete", "merge":
+		return true
+	default:
+		return false
+	}
+}
 
 // pushCmd represents the push command
 var pushCmd = &cobra.Command{
@@ -18,62 +48,83 @@ var pushCmd = &cobra.Command{
 	Short: "Push an environment to AWS Parameter Store",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg, err := config.LoadConfig()
 
+		if !IsValidMode(modeFlag) {
+			fmt.Printf("Invalid mode: %s \n", modeFlag)
+			os.Exit(1)
+		}
+
+		cfg, err := config.LoadConfig()
 		if err != nil {
 			fmt.Printf("Error loading configuration: %s \n", err)
 			os.Exit(1)
 		}
 
-		projectName, err := cmd.Flags().GetString("project")
+		envConf, err := cfg.GetEnvironment(projFlag, envFlag)
 		if err != nil {
-			fmt.Printf("Error getting project: %s \n", err)
+			fmt.Printf("Error getting environment from config ime.yaml: %s \n", err)
 			os.Exit(1)
 		}
 
-		environmentName, err := cmd.Flags().GetString("env")
-		if err != nil {
-			fmt.Printf("Error getting environment: %s \n", err)
-			os.Exit(1)
-		}
-
-		overwrite, err := cmd.Flags().GetBool("overwrite")
-		if err != nil {
-			fmt.Printf("Error getting overwrite flag: %s \n", err)
-			os.Exit(1)
-		}
-
-		env, err := cfg.GetEnvironment(projectName, environmentName)
-		if err != nil {
-			fmt.Printf("Error getting environment: %s \n", err)
-			os.Exit(1)
-		}
-
-		envFile, err := paramstore.LoadEnvFile(env.GetResolvedLocalPath())
-		if err != nil {
+		ef := environment.NewEnvFileFromPath(envConf.GetResolvedLocalPath())
+		if err := ef.LoadEnvFile(); err != nil {
 			fmt.Printf("Error loading environment file: %s \n", err)
 			os.Exit(1)
 		}
 
-		paramStorePath, err := cfg.FormatParameterStorePath(projectName, environmentName)
+		psPath, err := cfg.FormatParameterStorePath(projFlag, envFlag)
 		if err != nil {
 			fmt.Printf("Error formatting parameter store path: %s \n", err)
 			os.Exit(1)
 		}
 
-		err = paramstore.PutParametersFromEnvFile(envFile, paramStorePath, overwrite)
+		ps, err := paramstore.NewParamStore(psPath)
 		if err != nil {
-			fmt.Printf("Error putting parameters: %s \n", err)
+			fmt.Printf("Error creating ParamStore: %s \n", err)
 			os.Exit(1)
 		}
+
+		switch modeFlag {
+
+		case "add":
+			fmt.Printf("Adding parameters to %s \n", psPath)
+			if err := AddParameters(ps, ef); err != nil {
+				fmt.Printf("Error adding parameters: %s \n", err)
+				os.Exit(1)
+			}
+		case "delete":
+			fmt.Printf("Deleting parameters from %s \n", psPath)
+			if err := DeleteParameters(ps, ef); err != nil {
+				fmt.Printf("Error deleting parameters: %s \n", err)
+				os.Exit(1)
+			}
+		case "merge":
+			fmt.Printf("Merging parameters with %s \n", psPath)
+			if err := MergeParameters(ps, ef); err != nil {
+				fmt.Printf("Error merging parameters: %s \n", err)
+				os.Exit(1)
+			}
+		default:
+			fmt.Printf("Invalid mode: %s \n", modeFlag)
+			os.Exit(1)
+		}
+
+		// eParams, err := ps.GetParameters()
+		// if err != nil {
+		// 	fmt.Printf("Error getting parameters: %s \n", err)
+		// 	os.Exit(1)
+		// }
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(pushCmd)
-	pushCmd.Flags().String("project", "", "The project to push")
-	pushCmd.Flags().String("env", "", "The environment to push")
-	pushCmd.Flags().BoolP("overwrite", "o", false, "Overwrite existing parameters in Parameter Store")
+	pushCmd.Flags().StringVar(&projFlag, "project", "", "The project to push")
+	pushCmd.Flags().StringVar(&envFlag, "env", "", "The environment to push")
+	pushCmd.Flags().StringVar(&modeFlag, "mode", "add", "Mode of operation: add, delete, or merge")
+
+	pushCmd.Flags().BoolVar(&overwriteFlag, "overwrite", false, "Overwrite existing parameters in Parameter Store")
 
 	// Mark the required flags
 	pushCmd.MarkFlagRequired("project")

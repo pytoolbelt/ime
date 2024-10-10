@@ -6,6 +6,7 @@ package cmd
 import (
 	"os"
 
+	"github.com/pytoolbelt/ime/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +14,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "ime",
 	Short: "A tool to run commands with parameters from the AWS Parameter Store",
-	Long: "",
+	Long:  "",
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -38,4 +39,6 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// init viper config
+	config.InitializeConfig()
 }

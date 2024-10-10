@@ -18,7 +18,7 @@ func GetEnvAsMap() map[string]string {
 	return envMap
 }
 
-func StartSubshell() {
+func StartSubshell(envars []string) {
 	// Define the subshell command (e.g., /bin/bash or /bin/sh)
 	env := GetEnvAsMap()
 	shell := env["SHELL"] //"/bin/bash"
@@ -29,7 +29,10 @@ func StartSubshell() {
 
 	// Set up the new environment variables
 	newEnv := os.Environ()
-	newEnv = append(newEnv, "MY_VAR=HelloWorld")
+
+	for _, envar := range envars {
+		newEnv = append(newEnv, envar)
+	}
 	cmd.Env = newEnv
 
 	// Redirect standard input, output, and error to the subshell
